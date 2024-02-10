@@ -6,26 +6,30 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <Qfile>
+#include <QString>
 
 #define MATCH_SIZE 3
 #define REMATCH 2
 
 bool sorting(std::pair<std::string, int> i, std::pair<std::string, int> j) { return (i.second < j.second); }
 
-int addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::map<std::string, int>>& map);
+int addPlayer(std::map<std::string, int>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::map<std::string, int>>& map);
 
-int main()
+int placeMatch(std::map<std::string, int>& playersPrio, std::vector<std::pair<std::vector<std::string>, bool>>& matches, int playing);
+
+int main(int argc, char* argv[])
 {
-    std::string players[] = { "Cedric G.", "Cedric K.", "Theo", "Marc", "Nicolas", "Maxime", "Alexis", "Joffrey", "Matthieu", "Ethem", "Francois"};
+    std::string players[] = { "Cedric G.", "Cedric K.", "Theo", "Marc", "Nicolas", "Maxime", "Alexis", "Joffrey", "Matthieu", "Ethem", "Francois" };
 
-    std::vector<std::pair<std::string, int>> playersPrio;
+    std::map<std::string, int> playersPrio;
 
     std::map<std::string, std::map<std::string, int>> map;
 
     for (std::string player : players)
     {
         map.insert(std::pair<std::string, std::map<std::string, int>>(player, std::map<std::string, int>()));
-        playersPrio.push_back(std::pair<std::string, int>(player, 0));
+        playersPrio.insert(std::pair<std::string, int>(player, 0));
 
         for (std::string player2 : players)
         {
@@ -33,52 +37,190 @@ int main()
         }
     }
 
-    std::vector<std::string> match;
+    std::vector<std::pair<std::vector<std::string>, bool>> matches;
 
-    int totalMatches = 0;
-
-    int rematch = 0;
-
-    while (rematch <= REMATCH)
+    if (argc == 1)
     {
-        rematch = addPlayer(playersPrio, match, map);
+        int rematch = 0;
 
-        if (rematch <= REMATCH)
+        while (rematch <= REMATCH)
         {
-            for (int cpt = 0; cpt < match.size(); cpt++)
+            matches.push_back(std::pair<std::vector<std::string>, bool>(std::vector<std::string>(), false));
+
+            rematch = addPlayer(playersPrio, matches[matches.size() - 1].first, map);
+
+            if (rematch > REMATCH)
             {
-                std::cout << match[cpt] << std::endl;
-            }
-            std::cout << std::endl;
-
-            match.clear();
-
-            totalMatches++;
-        }else{
-            //delete count of last match
-
-            for (int cpt = 0; cpt < match.size(); cpt++)
-            {
-                for (int n = 0; n < playersPrio.size(); n++)
+                for (int cpt = 0; cpt < matches[matches.size() - 1].first.size(); cpt++)
                 {
-                    if (playersPrio[n].first == match[cpt])
+                    playersPrio[matches[matches.size() - 1].first[cpt]]--;
+                }
+
+                matches.pop_back();
+            }
+            else {
+                for (int cpt = 0; cpt < matches[matches.size()-1].first.size(); cpt++)
+                {
+                    std::cout << matches[matches.size() - 1].first[cpt] << std::endl;
+                }
+
+                std::cout << std::endl;
+            }
+        }
+
+        for (auto it = playersPrio.begin(); it != playersPrio.end(); ++it)
+        {
+            std::cout << it->first << " " << it->second << std::endl;
+        }
+
+        std::cout << std::endl;
+
+        std::cout << "Total number of matches: " << matches.size() << std::endl;
+    }
+    else if (argc == 2)
+    {
+        QFile file(argv[1]);
+
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        {
+            std::cout << "Failed to open file" << std::endl;
+            return 1;
+        }
+
+        QStringList strList = QString(file.readAll()).split("\n");
+
+        int line = 0;
+
+        while(line < strList.size())
+        {
+            matches.push_back(std::pair<std::vector<std::string>, bool>(std::vector<std::string>(), false));
+            matches[matches.size() - 1].first.push_back(strList[line].toStdString());
+            matches[matches.size() - 1].first.push_back(strList[line+1].toStdString());
+            matches[matches.size() - 1].first.push_back(strList[line+2].toStdString());
+            line += 4;
+        }
+
+        int placed = 0;
+
+        while (placed != matches.size())
+        {
+            for (auto it = playersPrio.begin(); it != playersPrio.end(); ++it)
+            {
+                it->second++;
+            }
+
+            int playing = 0;
+
+            playing = placeMatch(playersPrio, matches, -1);
+
+            if (playing == -1)
+            {
+                break;
+            }
+            else
+            {
+                for (int cpt = 0; cpt < matches[playing].first.size(); cpt++)
+                {
+                    std::cout << matches[playing].first[cpt] << std::endl;
+                }
+
+                std::cout << std::endl;
+            }
+
+            placed++;
+
+            playing = placeMatch(playersPrio, matches, playing);
+
+            if (playing == -1)
+            {
+                break;
+            }
+            else
+            {
+                for (int cpt = 0; cpt < matches[playing].first.size(); cpt++)
+                {
+                    std::cout << matches[playing].first[cpt] << std::endl;
+                }
+
+                std::cout << std::endl;
+            }
+
+            placed++;
+        }
+
+        if (placed != matches.size())
+        {
+            std::cout << "ERROR -----------------------------------------------------------------------------\n";
+
+            for (int i = 0; i < matches.size(); i++)
+            {
+                if (matches[i].second == false)
+                {
+                    for (int cpt = 0; cpt < matches[i].first.size(); cpt++)
                     {
-                        playersPrio[n].second--;
+                        std::cout << matches[i].first[cpt] << std::endl;
                     }
+
+                    std::cout << std::endl;
                 }
             }
         }
-    }
 
-    for (int i = 0; i < playersPrio.size(); i++)
-    {
-        std::cout << playersPrio[i].first << " " << playersPrio[i].second << std::endl;
+        std::cout << "Total number of matches: " << matches.size() << std::endl;
     }
-
-    std::cout << "Total number of matches: " << totalMatches << std::endl;
 }
 
-int addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::map<std::string, int>>& map)
+int placeMatch(std::map<std::string, int>& playersPrio, std::vector<std::pair<std::vector<std::string>, bool>>& matches, int playing)
+{
+    int bestMatch = -1;
+    int bestCore = 0;
+
+    for (int i = 0; i < matches.size(); i++)
+    {
+        int score = 0;
+        bool valid = true;
+
+        if (matches[i].second == false && i != playing)
+        {
+            for (int cpt = 0; cpt < matches[i].first.size() && valid == true; cpt++)
+            {
+                if (playing != -1)
+                {
+                    for (int n = 0; n < matches[playing].first.size(); n++)
+                    {
+                        if (matches[i].first[cpt] == matches[playing].first[n])
+                        {
+                            valid == false;
+                            break;
+                        }
+                    }
+                }
+
+                score += playersPrio[matches[i].first[cpt]];
+            }
+        }
+
+        if (valid == true && score > bestCore)
+        {
+            bestCore = score;
+            bestMatch = i;
+        }
+    }
+
+    if (bestMatch != -1)
+    {
+        matches[bestMatch].second = true;
+
+        for (int i = 0; i < matches[bestMatch].first.size(); i++)
+        {
+            playersPrio[matches[bestMatch].first[i]] = 0;
+        }
+    }
+
+    return bestMatch;
+}
+
+int addPlayer(std::map<std::string, int>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::map<std::string, int>>& map)
 {
     int rematch = 0;
 
@@ -86,37 +228,36 @@ int addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector
     {
         float bestScore = 9999;
         std::string bestPlayer = "";
-        
-        for (int n = 0; n < playersPrio.size(); n++)
+
+        for (auto it = playersPrio.begin(); it != playersPrio.end(); ++it)
         {
             float score = 0;
 
             if (match.size() == 0)
             {
-                bestPlayer = playersPrio[0].first;
-                break;
+                score = 500 + it->second;
             }
             else
             {
                 for (int cpt = 0; cpt < match.size(); cpt++)
                 {
-                    if (playersPrio[n].first != match[cpt])
+                    if (it->first != match[cpt])
                     {
-                        score += map[match[cpt]][playersPrio[n].first];
+                        score += map[match[cpt]][it->first];
                     }
                     else
                     {
                         score = 9999;
                     }
                 }
-            }
 
-            score = score / float(match.size());
+                score = score / float(match.size());
+            }
 
             if (bestScore > score)
             {
                 bestScore = score;
-                bestPlayer = playersPrio[n].first;
+                bestPlayer = it->first;
             }
         }
 
@@ -137,17 +278,8 @@ int addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector
 
     for (int cpt = 0; cpt < match.size(); cpt++)
     {
-        for (int i = 0; i < playersPrio.size(); i++)
-        {
-            if (playersPrio[i].first == match[cpt])
-            {
-                playersPrio[i].second++;
-                break;
-            }
-        }
+        playersPrio[match[cpt]]++;
     }
-
-    std::sort(playersPrio.begin(), playersPrio.end(), sorting);
 
     return rematch;
 }
