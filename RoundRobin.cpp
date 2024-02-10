@@ -8,46 +8,64 @@
 #include <algorithm>
 
 #define MATCH_SIZE 3
+#define REMATCH 2
 
 bool sorting(std::pair<std::string, int> i, std::pair<std::string, int> j) { return (i.second < j.second); }
 
-bool addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::set<std::string>>& map);
+int addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::map<std::string, int>>& map);
 
 int main()
 {
-    std::string players[] = { "Cedric G.", "Cedric K.", "Theo", "Marc", "Nicolas", "Maxime", "Alexis", "Joffrey", "Matthieu", "Ethem", "Francois", "Solene"};
+    std::string players[] = { "Cedric G.", "Cedric K.", "Theo", "Marc", "Nicolas", "Maxime", "Alexis", "Joffrey", "Matthieu", "Ethem", "Francois"};
 
     std::vector<std::pair<std::string, int>> playersPrio;
 
-    std::map<std::string, std::set<std::string>> map;
+    std::map<std::string, std::map<std::string, int>> map;
 
     for (std::string player : players)
     {
-        map.insert(std::pair<std::string, std::set<std::string>>(player, std::set<std::string>()));
+        map.insert(std::pair<std::string, std::map<std::string, int>>(player, std::map<std::string, int>()));
         playersPrio.push_back(std::pair<std::string, int>(player, 0));
+
+        for (std::string player2 : players)
+        {
+            map[player].insert(std::pair<std::string, int>(player2, 0));
+        }
     }
 
     std::vector<std::string> match;
 
-    for (int i = 0; i < playersPrio.size(); i++)
+    int totalMatches = 0;
+
+    int rematch = 0;
+
+    while (rematch <= REMATCH)
     {
-        bool success = true;
+        rematch = addPlayer(playersPrio, match, map);
 
-        while (success == true)
+        if (rematch <= REMATCH)
         {
-            success = addPlayer(playersPrio, match, map);
-
-            if (success == true)
+            for (int cpt = 0; cpt < match.size(); cpt++)
             {
-                for (int cpt = 0; cpt < match.size(); cpt++)
+                std::cout << match[cpt] << std::endl;
+            }
+            std::cout << std::endl;
+
+            match.clear();
+
+            totalMatches++;
+        }else{
+            //delete count of last match
+
+            for (int cpt = 0; cpt < match.size(); cpt++)
+            {
+                for (int n = 0; n < playersPrio.size(); n++)
                 {
-                    std::cout << match[cpt] << std::endl;
+                    if (playersPrio[n].first == match[cpt])
+                    {
+                        playersPrio[n].second--;
+                    }
                 }
-                std::cout << std::endl;
-
-                match.clear();
-            }else{
-
             }
         }
     }
@@ -56,60 +74,81 @@ int main()
     {
         std::cout << playersPrio[i].first << " " << playersPrio[i].second << std::endl;
     }
+
+    std::cout << "Total number of matches: " << totalMatches << std::endl;
 }
 
-bool addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::set<std::string>>& map)
+int addPlayer(std::vector<std::pair<std::string, int>>& playersPrio, std::vector<std::string>& match, std::map<std::string, std::map<std::string, int>>& map)
 {
-    for (int n = 0; n < playersPrio.size() && match.size() != MATCH_SIZE; n++)
-    {
-        bool invalid = false;
+    int rematch = 0;
 
-        for (int cpt = 0; cpt < match.size() && invalid == false; cpt++)
+    while (match.size() != MATCH_SIZE)
+    {
+        float bestScore = 9999;
+        std::string bestPlayer = "";
+        
+        for (int n = 0; n < playersPrio.size(); n++)
         {
-            if (playersPrio[n].first == match[cpt])
+            float score = 0;
+
+            if (match.size() == 0)
             {
-                invalid = true;
+                bestPlayer = playersPrio[0].first;
+                break;
             }
-            else {
-                if (map[match[cpt]].find(playersPrio[n].first) != map[match[cpt]].end())
+            else
+            {
+                for (int cpt = 0; cpt < match.size(); cpt++)
                 {
-                    invalid = true;
+                    if (playersPrio[n].first != match[cpt])
+                    {
+                        score += map[match[cpt]][playersPrio[n].first];
+                    }
+                    else
+                    {
+                        score = 9999;
+                    }
                 }
             }
-        }
 
-        if (invalid == false)
-        {
-            for (int cpt = 0; cpt < match.size(); cpt++)
+            score = score / float(match.size());
+
+            if (bestScore > score)
             {
-                map[match[cpt]].insert(playersPrio[n].first);
-                map[playersPrio[n].first].insert(match[cpt]);
+                bestScore = score;
+                bestPlayer = playersPrio[n].first;
             }
-
-            match.push_back(playersPrio[n].first);
         }
-    }
 
-    if (match.size() == MATCH_SIZE)
-    {
+
         for (int cpt = 0; cpt < match.size(); cpt++)
         {
-            for (int i = 0; i < playersPrio.size(); i++)
+            map[match[cpt]][bestPlayer]++;
+            map[bestPlayer][match[cpt]]++;
+
+            if (rematch < map[match[cpt]][bestPlayer])
             {
-                if (playersPrio[i].first == match[cpt])
-                {
-                    playersPrio[i].second++;
-                    break;
-                }
+                rematch = map[match[cpt]][bestPlayer];
             }
         }
 
-        std::sort(playersPrio.begin(), playersPrio.end(), sorting);
+        match.push_back(bestPlayer);
+    }
 
-        return true;
+    for (int cpt = 0; cpt < match.size(); cpt++)
+    {
+        for (int i = 0; i < playersPrio.size(); i++)
+        {
+            if (playersPrio[i].first == match[cpt])
+            {
+                playersPrio[i].second++;
+                break;
+            }
+        }
     }
-    else {
-        return false;
-    }
+
+    std::sort(playersPrio.begin(), playersPrio.end(), sorting);
+
+    return rematch;
 }
 
