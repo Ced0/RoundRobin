@@ -190,7 +190,7 @@ int placeMatch(std::map<std::string, int>& playersPrio, std::vector<std::pair<st
                     {
                         if (matches[i].first[cpt] == matches[playing].first[n])
                         {
-                            valid == false;
+                            valid = false;
                             break;
                         }
                     }
